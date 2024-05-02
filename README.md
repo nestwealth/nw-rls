@@ -1,13 +1,9 @@
 ##### Table of Contents 
-[Description](#description)
-[Install](#install)
-[Usage](#usage)
-[Local Testing](#localtesting)
-[Publish Package](#publish)
-
-
-[![Build And Test](https://github.com/Avallone-io/rls/actions/workflows/build-and-test.yml/badge.svg?branch=master)](https://github.com/Avallone-io/rls/actions/workflows/build-and-test.yml)
-[![.github/workflows/release.yml](https://github.com/Avallone-io/rls/actions/workflows/release.yml/badge.svg?branch=master)](https://github.com/Avallone-io/rls/actions/workflows/release.yml)
+[Description](#description)<br/>
+[Install](#install)<br/>
+[Usage](#usage)<br/>
+[Local Testing](#localtesting)<br/>
+[Publish Package](#publish)<br/>
 
 <a href="description"/>
 
