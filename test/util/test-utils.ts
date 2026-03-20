@@ -176,14 +176,14 @@ export function getConnectionOptions(
 }
 
 /**
- * Loads test connection options from ormconfig.json file.
+ * Returns the embedded TypeORM connection config for tests.
  */
 export function getTypeOrmConfig(): PostgresConnectionOptions {
   return config;
 }
 
 /**
- * Creates a testing connections options based on the configuration in the ormconfig.json
+ * Creates testing connection options based on the embedded config
  * and given options that can override some of its configuration for the test-specific use case.
  */
 function _getConnectionOptions(
@@ -196,23 +196,23 @@ function _getConnectionOptions(
 
   if (!ormConfigConnectionOptions)
     throw new Error(
-      `No connections setup in ormconfig.json file. Please create configurations for each database type to run tests.`,
+      `No connections setup. Please check the config in test/util/test-utils.ts.`,
     );
 
-  const newOptions: any = Object.assign({}, ormConfigConnectionOptions, {
+  const newOptions = Object.assign({}, ormConfigConnectionOptions, {
     name: options.name ? options.name : ormConfigConnectionOptions.name,
     entities: options.entities ? options.entities : [],
     migrations: options.migrations ? options.migrations : [],
     subscribers: options.subscribers ? options.subscribers : [],
     dropSchema: options.dropSchema !== undefined ? options.dropSchema : false,
+    synchronize: options.schemaCreate,
     cache: options.cache,
-    driverSpecific: options.driverSpecific,
-    schemaCreate: options.schemaCreate,
     schema: options.schema,
     logging: options.logging ?? false,
     logger: options.createLogger ? options.createLogger() : undefined,
     namingStrategy: options.namingStrategy,
-  });
+    ...(options.driverSpecific ?? {}),
+  }) as DataSourceOptions;
 
   return newOptions;
 }

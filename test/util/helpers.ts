@@ -13,7 +13,7 @@ import { Category } from './entity/Category';
 
 export async function runInTransaction<T>(
   connection: DataSource,
-  runInTransaction: (
+  fn: (
     entityManager: EntityManager,
     qr: QueryRunner,
   ) => Promise<T>,
@@ -22,7 +22,7 @@ export async function runInTransaction<T>(
   const manager = qr.manager;
   try {
     await qr.startTransaction();
-    const result = await runInTransaction(manager, qr);
+    const result = await fn(manager, qr);
     if (qr.isTransactionActive) {
       await qr.commitTransaction();
     }
