@@ -13,10 +13,7 @@ import { Category } from './entity/Category';
 
 export async function runInTransaction<T>(
   connection: DataSource,
-  fn: (
-    entityManager: EntityManager,
-    qr: QueryRunner,
-  ) => Promise<T>,
+  fn: (entityManager: EntityManager, qr: QueryRunner) => Promise<T>,
 ) {
   const qr = connection.createQueryRunner();
   const manager = qr.manager;
