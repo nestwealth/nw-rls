@@ -222,7 +222,7 @@ describe('RLS Module', function (this: CustomSuite) {
         });
       expect(pending).to.be.true;
 
-      clock.tick(3000);
+      await clock.tickAsync(3000);
       const result = await fooReqProm;
       expect(pending).to.be.false;
 
