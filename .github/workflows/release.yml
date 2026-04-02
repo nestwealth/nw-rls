@@ -2,7 +2,10 @@ name: Release
 
 on:
   push:
-    branches: [master, 1.x]
+    branches: [master]
+
+permissions:
+  contents: read
 
 jobs:
   build-and-test:
@@ -10,16 +13,17 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [12.x, 14.x, 16.x]
+        node-version: [18.x, 20.x, 22.x]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          registry-url: 'https://registry.npmjs.org'
       - name: Install dependencies
         run: npm ci
       - name: Check commit messages
@@ -34,34 +38,27 @@ jobs:
   release:
     runs-on: ubuntu-latest
     needs: build-and-test
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
       - name: Install
         run: npm ci
-      - name: Set project name
-        run: echo "SEMANTIC_RELEASE_PACKAGE=$(jq -r '.name' package.json)" >> $GITHUB_ENV
-      - name: Get release version if there is one
-        run: echo "RELEASE_VERSION=$(npx semantic-release --dry-run | grep -oE 'Published release [0-9\.]+ on \w+ channel' | grep -oE '[0-9\.]+')" >> $GITHUB_ENV
+      - name: Verify the integrity of provenance attestations and registry signatures for installed dependencies
+        run: npm audit signatures
+      - name: Release
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SLACK_WEBHOOK: ${{ secrets.SLACK_SEMANTIC_RELEASE_WEBHOOK }}
-          NPM_CONFIG_REGISTRY: https://npm.pkg.github.com
-      - name: Release to github registry
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx semantic-release
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SLACK_WEBHOOK: ${{ secrets.SLACK_SEMANTIC_RELEASE_WEBHOOK }}
-          NPM_CONFIG_REGISTRY: https://npm.pkg.github.com
-      - name: Set npm registry to npm
-        run: npm config set @avallone-io:registry https://registry.npmjs.org
-      - name: Npm registry authentication
-        run: npm set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
-      - name: Release to NPM
-        if: ${{ env.RELEASE_VERSION != '' }}
-        run: npm publish --access public
