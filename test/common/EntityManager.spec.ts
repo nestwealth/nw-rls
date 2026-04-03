@@ -167,7 +167,7 @@ describe('EntityManager', function (this: CustomSuite) {
 
   describe('queued queries', () => {
     let queryPrototypeSpy: Sinon.SinonSpy;
-    let connectedQueryRunnersStub: sinon.SinonStub;
+    let connectedQueryRunnersStub: Sinon.SinonStub;
 
     beforeEach(() => {
       queryPrototypeSpy = Sinon.spy(PostgresQueryRunner.prototype, 'query');
