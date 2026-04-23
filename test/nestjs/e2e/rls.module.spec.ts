@@ -116,10 +116,8 @@ describe('RLS Module', function (this: CustomSuite) {
 
   describe('multiple-requests', () => {
     let connectionStub: Sinon.SinonStub;
-    let clock: Sinon.SinonFakeTimers;
     let stopStub: Sinon.SinonStub;
 
-    // Start the server first
     beforeEach(() => {
       connectionStub = Sinon.stub(
         AppService.prototype,
@@ -127,15 +125,10 @@ describe('RLS Module', function (this: CustomSuite) {
       ).callThrough();
 
       stopStub = Sinon.stub(AppService.prototype, 'stop').callThrough();
-
-      clock = Sinon.useFakeTimers({
-        toFake: ['setTimeout'],
-      });
     });
 
     afterEach(() => {
       Sinon.restore();
-      clock.restore();
     });
 
     it('should use the right connection for request', async () => {
@@ -209,19 +202,21 @@ describe('RLS Module', function (this: CustomSuite) {
         return Promise.resolve();
       });
 
-      // Initiate foo request without awaiting — .then() kicks off the HTTP call
-      const fooReqProm = getAuthRequest(app, 'get', '/categories', fooTenant)
-        .expect(200)
-        .expect((res: { body: Category[] }) => {
-          expectTenantData(
-            expect(res.body),
-            this.categories,
-            1,
-            fooTenant,
-            true,
-          );
-        })
-        .then(res => res);
+      // Wrap in Promise.resolve to convert the supertest thenable into a real
+      // Promise and fire the request without awaiting it here.
+      const fooReqProm = Promise.resolve(
+        getAuthRequest(app, 'get', '/categories', fooTenant)
+          .expect(200)
+          .expect((res: { body: Category[] }) => {
+            expectTenantData(
+              expect(res.body),
+              this.categories,
+              1,
+              fooTenant,
+              true,
+            );
+          }),
+      );
 
       fooReqProm.finally(() => (pending = false));
 
