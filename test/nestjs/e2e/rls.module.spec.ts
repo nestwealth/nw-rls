@@ -116,10 +116,8 @@ describe('RLS Module', function (this: CustomSuite) {
 
   describe('multiple-requests', () => {
     let connectionStub: Sinon.SinonStub;
-    let clock: Sinon.SinonFakeTimers;
     let stopStub: Sinon.SinonStub;
 
-    // Start the server first
     beforeEach(() => {
       connectionStub = Sinon.stub(
         AppService.prototype,
@@ -127,15 +125,10 @@ describe('RLS Module', function (this: CustomSuite) {
       ).callThrough();
 
       stopStub = Sinon.stub(AppService.prototype, 'stop').callThrough();
-
-      clock = Sinon.useFakeTimers({
-        toFake: ['setTimeout'],
-      });
     });
 
     afterEach(() => {
       Sinon.restore();
-      clock.restore();
     });
 
     it('should use the right connection for request', async () => {
@@ -181,33 +174,54 @@ describe('RLS Module', function (this: CustomSuite) {
     });
 
     /**
-     * Make first request for foo tenant and simulate a wait
-     *
+     * Make first request for foo tenant and simulate a wait using promise
+     * signaling. We wait until the server has actually received and started
+     * processing the foo request before making the bar request, guaranteeing
+     * true concurrency without relying on call ordering or fake timers.
      */
     it('should not have race conditions on multiple-requests', async () => {
       let pending = true;
-      const fooResolver = Sinon.fake.resolves(
-        new Promise(resolve => {
-          return setTimeout(async () => {
-            resolve(true);
-          }, 3000);
-        }),
+
+      let fooStopStartedResolve!: () => void;
+      let fooStopDoneResolve!: () => void;
+      const fooStopStarted = new Promise<void>(
+        resolve => (fooStopStartedResolve = resolve),
+      );
+      const fooStopDone = new Promise<void>(
+        resolve => (fooStopDoneResolve = resolve),
       );
 
-      stopStub.onCall(0).resolves(fooResolver());
-
-      const host = `http://127.0.0.1:${app.getHttpServer().address().port}`;
-
-      const fooReqProm = fetch(`${host}/categories`, {
-        headers: {
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          tenant_id: fooTenant.tenantId as string,
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          actor_id: fooTenant.actorId as string,
-        },
+      stopStub.callsFake(function (this: AppService) {
+        // AppService is request-scoped so `this.connection` holds the tenant
+        // connection for the current request, letting us identify foo vs bar.
+        const conn = (this as any).connection as RLSConnection;
+        if (String(conn.tenantId) === String(fooTenant.tenantId)) {
+          fooStopStartedResolve();
+          return fooStopDone;
+        }
+        return Promise.resolve();
       });
 
+      // Wrap in Promise.resolve to convert the supertest thenable into a real
+      // Promise and fire the request without awaiting it here.
+      const fooReqProm = Promise.resolve(
+        getAuthRequest(app, 'get', '/categories', fooTenant)
+          .expect(200)
+          .expect((res: { body: Category[] }) => {
+            expectTenantData(
+              expect(res.body),
+              this.categories,
+              1,
+              fooTenant,
+              true,
+            );
+          }),
+      );
+
       fooReqProm.finally(() => (pending = false));
+
+      // Wait until the server has received the foo request and is stuck in stop()
+      await fooStopStarted;
 
       await getAuthRequest(app, 'get', '/categories', barTenant)
         .expect(200)
@@ -222,14 +236,12 @@ describe('RLS Module', function (this: CustomSuite) {
         });
       expect(pending).to.be.true;
 
-      clock.tick(3000);
-      const result = await fooReqProm;
+      fooStopDoneResolve();
+
+      await fooReqProm;
       expect(pending).to.be.false;
 
-      const resultBody = await result.json();
-
-      expectTenantData(expect(resultBody), this.categories, 1, fooTenant, true);
-      // two requests and one call from setTimeout
+      // two requests, each called getConnection once
       expect(connectionStub).calledTwice;
       expect(connectionStub.returnValues).to.have.lengthOf(2);
 
