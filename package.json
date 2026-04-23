@@ -1,6 +1,6 @@
 {
   "name": "@nestwealth/nw-rls",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Row level security package for TypeORM and NestJS, this package is forked from the original @avallone-io/rls",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
